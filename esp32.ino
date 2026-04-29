@@ -3,54 +3,61 @@
 
 RTC_DS3231 rtc;
 
-// Định nghĩa chân cảm biến
 const int pinChau1 = 32;
 const int pinChau2 = 33;
 const int pinChau3 = 34;
 
-// Mốc thông số để quy đổi sang phần trăm (bạn có thể tinh chỉnh sau)
-const int mucKho = 3500; // Giá trị khi để ngoài không khí
-const int mucUot = 1200; // Giá trị khi nhúng ngập nước
+const int pinVan1 = 25;
+const int pinVan2 = 26;
+const int pinVan3 = 27;
+const int pinBom  = 14;
+
+// --- THÔNG SỐ ĐÃ ĐƯỢC BẠN HIỆU CHUẨN THỰC TẾ ---
+const int mucKho = 4095; // Mức khô tuyệt đối
+const int mucUot = 1350; // Mức nhúng ngập nước
 
 void setup() {
   Serial.begin(115200);
 
-  // Kích hoạt mạch RTC
+  pinMode(pinVan1, OUTPUT);
+  pinMode(pinVan2, OUTPUT);
+  pinMode(pinVan3, OUTPUT);
+  pinMode(pinBom, OUTPUT);
+  
+  digitalWrite(pinVan1, HIGH); 
+  digitalWrite(pinVan2, HIGH); 
+  digitalWrite(pinVan3, HIGH); 
+  digitalWrite(pinBom, HIGH);  
+
   if (!rtc.begin()) {
-    Serial.println("Lỗi: Không tìm thấy mạch RTC DS3231! Kiểm tra lại dây SDA, SCL.");
-    while (1) delay(10); // Dừng hệ thống nếu không thấy RTC
+    Serial.println("Loi RTC!");
+    while (1) delay(10);
   }
 
-  // RTC bị mất điện tự động lấy giờ từ máy tính nạp vào
   if (rtc.lostPower()) {
-    Serial.println("RTC mất nguồn, đang tự động đồng bộ giờ máy tính...");
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
 }
 
 void loop() {
-  // ĐỌC THỜI GIAN
   DateTime now = rtc.now();
 
-  // 2. ĐỌC GIÁ TRỊ CẢM BIẾN
+  // Đọc số thô
   int raw1 = analogRead(pinChau1);
   int raw2 = analogRead(pinChau2);
   int raw3 = analogRead(pinChau3);
 
-  // QUY ĐỔI SANG PHẦN TRĂM (0-100%) bằng hàm map()
+  // Ép sang Phần trăm (0% - 100%)
   int phanTram1 = map(raw1, mucKho, mucUot, 0, 100);
   int phanTram2 = map(raw2, mucKho, mucUot, 0, 100);
   int phanTram3 = map(raw3, mucKho, mucUot, 0, 100);
 
-  // Chốt giới hạn: không cho số tụt xuống âm hoặc vọt lố 100%
+  // Chốt không cho số nhảy lố
   phanTram1 = constrain(phanTram1, 0, 100);
   phanTram2 = constrain(phanTram2, 0, 100);
   phanTram3 = constrain(phanTram3, 0, 100);
 
-  // IN KẾT QUẢ RA MÀN HÌNH CHUẨN ĐẸP
-  Serial.print(now.year(), DEC); Serial.print('/');
-  Serial.print(now.month(), DEC); Serial.print('/');
-  Serial.print(now.day(), DEC); Serial.print(" ");
+  // IN KẾT QUẢ ĐÃ CHUẨN HÓA LÊN MÀN HÌNH
   Serial.print(now.hour(), DEC); Serial.print(':');
   Serial.print(now.minute(), DEC); Serial.print(':');
   Serial.print(now.second(), DEC);
@@ -59,6 +66,18 @@ void loop() {
   Serial.print(" | Chậu 2: "); Serial.print(phanTram2); Serial.print("%");
   Serial.print(" | Chậu 3: "); Serial.print(phanTram3); Serial.println("%");
 
-  // 
+  // Vẫn giữ test Relay để nghe tiếng tạch tạch cho yên tâm
+  digitalWrite(pinVan1, LOW);
+  digitalWrite(pinVan2, LOW);
+  digitalWrite(pinVan3, LOW);
+  digitalWrite(pinBom, LOW);
+  delay(1000); 
+
+  digitalWrite(pinVan1, HIGH);
+  digitalWrite(pinVan2, HIGH);
+  digitalWrite(pinVan3, HIGH);
+  digitalWrite(pinBom, HIGH);
+  
+  Serial.println("---------------------------------------------------");
   delay(2000); 
 }
