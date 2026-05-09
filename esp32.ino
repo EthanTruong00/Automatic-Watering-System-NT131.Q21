@@ -70,9 +70,11 @@ void docCamBien() {
 void xuLyLogic() {
   struct tm timeinfo;
   int gioHienTai = -1, phutHienTai = -1;
-  // CHỖ NÀY ĐANG CHỨA LỖI BUG THỜI GIAN ĐỂ LÁT NỮA FIX
+  
   if (getLocalTime(&timeinfo)) {
-    gioHienTai = timeinfo.tm_hour; phutHienTai = timeinfo.tm_min;
+    if (timeinfo.tm_year > 100) { 
+      gioHienTai = timeinfo.tm_hour; phutHienTai = timeinfo.tm_min;
+    }
   }
 
   int totalHienTai = gioHienTai * 60 + phutHienTai;
