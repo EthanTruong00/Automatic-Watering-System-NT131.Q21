@@ -1,110 +1,91 @@
 #define BLYNK_PRINT Serial
 #define BLYNK_TEMPLATE_ID "TMPL6SHeWCWKU"
 #define BLYNK_TEMPLATE_NAME "Smart Watering System"
-#define BLYNK_AUTH_TOKEN "EGcX0nlkD4x9Pm9G4Zvvn_jVLK6S1t1K"
+#define BLYNK_AUTH_TOKEN "EGcX0nlkD4x9Pm9G4Zvvn_jVLK6S1t1K" 
 
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <BlynkSimpleEsp32.h>
 #include <Wire.h>
-#include "RTClib.h"
+#include "DHT.h"
+#include <time.h> 
 
 char auth[] = BLYNK_AUTH_TOKEN;
-char ssid[] = "TruongCao"; 
-char pass[] = "0918540916";
+char ssid[] = "Testdoan"; 
+char pass[] = "tankietne123"; 
 
-RTC_DS3231 rtc;
+#define RELAY_ON LOW   
+#define RELAY_OFF HIGH 
+
+#define DHTPIN 4
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
+
 BlynkTimer timer;
 
-// 2. KHAI BÁO CHÂN CẮM
-const int pinChau[3] = {32, 33, 34};      // 3 Cảm biến độ ẩm
-const int pinRelay[4] = {25, 26, 27, 14}; // Van 1, Van 2, Van 3, Máy Bơm
-
-// 3. THÔNG SỐ HIỆU CHUẨN CẢM BIẾN
+const int pinChau[3] = {32, 33, 34};
+const int pinVan[3] = {25, 26, 27};
+const int pinBom = 14;
 const int mucKho = 4095;
 const int mucUot = 1350;
 
-// 4. BIẾN LƯU TRỮ ĐỘ ẨM VÀ NGƯỠNG TƯỚI
-int doAmThucTe[3];
-int nguongTuoi[3] = {60, 60, 60}; // Ngưỡng mặc định nếu chưa chọn cây
+int doAm[3];
+float nhietDoKK = 0;
+float doAmKK = 0;
+int cheDo[3] = {1, 1, 1}; 
+int nguongProfile[3] = {60, 60, 60}; 
+int gioHen = 7, phutHen = 0, doAmChung = 75, gioPhutDaTuoi = -1;     
+bool dangTuoiHenGio = false;
+bool vanHoanThanh[3] = {false, false, false};
 
-// ---  1: CÀI ĐẶT PROFILE CÂY 
-void thietLapProfile(int chau, int loaiCay) {
+int layNguongTuoi(int loaiCay) {
   switch (loaiCay) {
-    case 1: nguongTuoi[chau] = 80; break; // Rau Muống (Rất ưa nước)
-    case 2: nguongTuoi[chau] = 75; break; // Hành lá / Mồng Tơi
-    case 3: nguongTuoi[chau] = 70; break; // Rau Cải / Xà Lách
-    case 4: nguongTuoi[chau] = 60; break; // Rau Dền / Rau Thơm
-    case 5: nguongTuoi[chau] = 50; break; // Rau Ngót (Chịu hạn tốt)
-    default: nguongTuoi[chau] = 60; break;
-  }
-  Serial.print(">> Đã cập nhật Chậu "); Serial.print(chau + 1);
-  Serial.print(" thành Profile số: "); Serial.print(loaiCay);
-  Serial.print(" | Ngưỡng tưới: Dưới "); Serial.print(nguongTuoi[chau]);
-  Serial.println("% sẽ bơm.");
-}
-
-// --- 2: ĐỌC CẢM BIẾN & GỬI LÊN APP ---
-void updateData() {
-  for (int i = 0; i < 3; i++) {
-    int raw = analogRead(pinChau[i]);
-    doAmThucTe[i] = map(raw, mucKho, mucUot, 0, 100);
-    doAmThucTe[i] = constrain(doAmThucTe[i], 0, 100);
-    Blynk.virtualWrite(i + 1, doAmThucTe[i]); // Đẩy số liệu lên V1, V2, V3
+    case 0: return 90;  
+    case 1: return 70;  
+    case 2: return 70;  
+    case 3: return 50;  
+    case 4: return 60;  
+    case 5: return 60;  
+    case 6: return 65;  
+    case 7: return 60;  
+    case 8: return 60;  
+    case 9: return 60;  
+    case 10: return 0;  
+    case 11: return 0;  
+    default: return 0; 
   }
 }
 
-// --- HÀM 3: LOGIC TỰ ĐỘNG TƯỚI THEO PROFILE ---
-void autoLogic() {
-  bool canBom = false;
+void docCamBien() {
   for (int i = 0; i < 3; i++) {
-    // Nếu độ ẩm thực tế thấp hơn ngưỡng của cây -> Mở Van
-    if (doAmThucTe[i] < nguongTuoi[i]) {
-      digitalWrite(pinRelay[i], LOW); // LOW là bật Relay
-      canBom = true; // Báo hiệu là đang có van mở, cần bật bơm
-    } else {
-      digitalWrite(pinRelay[i], HIGH); // Đủ nước rồi -> Đóng van
+    if (nguongProfile[i] == 0) {
+      doAm[i] = 0; Blynk.virtualWrite(i + 1, 0); continue;                      
     }
+    int raw = analogRead(pinChau[i]);
+    doAm[i] = map(raw, mucKho, mucUot, 0, 100);
+    doAm[i] = constrain(doAm[i], 0, 100);
+    Blynk.virtualWrite(i + 1, doAm[i]); 
   }
-  // Nếu có ít nhất 1 van mở thì bật Máy Bơm (Relay số 4)
-  if (canBom) {
-    digitalWrite(pinRelay[3], LOW); 
-  } else {
-    digitalWrite(pinRelay[3], HIGH);
+  float h = dht.readHumidity(); float t = dht.readTemperature();
+  if (!isnan(h) && !isnan(t)) {
+    nhietDoKK = t; doAmKK = h;
+    Blynk.virtualWrite(V11, t); Blynk.virtualWrite(V12, h);
   }
 }
 
-// --- HÀM 4: NHẬN LỆNH TỪ APP ĐIỆN THOẠI ---
-// Nhận lệnh chọn Cây từ Menu
-BLYNK_WRITE(V8) { thietLapProfile(0, param.asInt()); }
-BLYNK_WRITE(V9) { thietLapProfile(1, param.asInt()); }
-BLYNK_WRITE(V10) { thietLapProfile(2, param.asInt()); }
 
-// Nhận lệnh bấm Nút thủ công
-BLYNK_WRITE(V4) { digitalWrite(pinRelay[0], !param.asInt()); }
-BLYNK_WRITE(V5) { digitalWrite(pinRelay[1], !param.asInt()); }
-BLYNK_WRITE(V6) { digitalWrite(pinRelay[2], !param.asInt()); }
-BLYNK_WRITE(V7) { digitalWrite(pinRelay[3], !param.asInt()); }
+void xuLyLogic() {
 
-// --- CÀI ĐẶT HỆ THỐNG ---
+}
+
+BLYNK_CONNECTED() { Blynk.syncAll(); }
+
 void setup() {
   Serial.begin(115200);
-  
-  // Tắt toàn bộ Relay khi mới khởi động
-  for (int i = 0; i < 4; i++) {
-    pinMode(pinRelay[i], OUTPUT);
-    digitalWrite(pinRelay[i], HIGH);
-  }
-
-  rtc.begin(); // Khởi động đồng hồ thời gian
-  Blynk.begin(auth, ssid, pass); // Kết nối mạng
-
-  // Hẹn giờ chạy 2 vòng lặp (Giúp WiFi không bị rớt)
-  timer.setInterval(2000L, updateData); // 2 giây đọc cảm biến 1 lần
-  timer.setInterval(5000L, autoLogic);   // 5 giây kiểm tra để tưới 1 lần
+  for (int i = 0; i < 3; i++) { digitalWrite(pinVan[i], RELAY_OFF); pinMode(pinVan[i], OUTPUT); }
+  digitalWrite(pinBom, RELAY_OFF); pinMode(pinBom, OUTPUT);
+  dht.begin(); Blynk.begin(auth, ssid, pass); 
+  configTime(7 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+  timer.setInterval(2000L, docCamBien); timer.setInterval(3000L, xuLyLogic);   
 }
-
-void loop() {
-  Blynk.run();
-  timer.run();
-}
+void loop() { Blynk.run(); timer.run(); }
