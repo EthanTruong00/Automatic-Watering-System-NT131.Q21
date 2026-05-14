@@ -115,3 +115,32 @@ bool coVanAutoMo() {
   }
   return false;
 }
+// ---------------------------------------------------------
+// AUTO-SAVE LÊN FLASH MEMORY
+// ---------------------------------------------------------
+void luuCauHinh() {
+  prefs.begin("garden", false);
+  for (int i = 0; i < 3; i++) {
+    prefs.putInt(("cd" + String(i)).c_str(), cheDo[i]);
+    prefs.putInt(("lc" + String(i)).c_str(), loaiCay[i]);
+  }
+  prefs.putInt("gh0", gioHen[0]); prefs.putInt("ph0", phutHen[0]);
+  prefs.putInt("gh1", gioHen[1]); prefs.putInt("ph1", phutHen[1]);
+  prefs.putInt("tgt", thoiGianTuoi);
+  prefs.end();
+}
+
+void taiCauHinh() {
+  prefs.begin("garden", true);
+  for (int i = 0; i < 3; i++) {
+    cheDo[i]   = prefs.getInt(("cd" + String(i)).c_str(), 0);
+    loaiCay[i] = prefs.getInt(("lc" + String(i)).c_str(), 10);
+    nguongDoAm[i] = layNguong(loaiCay[i]);
+  }
+  gioHen[0]   = prefs.getInt("gh0", 7);
+  phutHen[0]  = prefs.getInt("ph0", 0);
+  gioHen[1]   = prefs.getInt("gh1", 24); 
+  phutHen[1]  = prefs.getInt("ph1", 0);
+  thoiGianTuoi = prefs.getInt("tgt", 5);
+  prefs.end();
+}
