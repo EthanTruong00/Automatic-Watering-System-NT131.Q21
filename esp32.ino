@@ -144,3 +144,76 @@ void taiCauHinh() {
   thoiGianTuoi = prefs.getInt("tgt", 5);
   prefs.end();
 }
+// ---------------------------------------------------------
+// GIAO TIẾP VỚI CLOUD BLYNK
+// ---------------------------------------------------------
+BLYNK_WRITE(V20) { if (param.asInt() == 1) { luuCauHinh(); Blynk.virtualWrite(V20, 0); } }
+BLYNK_WRITE(V16) { cheDo[0] = param.asInt(); luuCauHinh(); }
+BLYNK_WRITE(V17) { cheDo[1] = param.asInt(); luuCauHinh(); }
+BLYNK_WRITE(V18) { cheDo[2] = param.asInt(); luuCauHinh(); }
+BLYNK_WRITE(V13) { gioHen[0]  = param.asInt(); luuCauHinh(); }
+BLYNK_WRITE(V14) { phutHen[0] = param.asInt(); luuCauHinh(); }
+BLYNK_WRITE(V21) { gioHen[1]  = param.asInt(); luuCauHinh(); }
+BLYNK_WRITE(V22) { phutHen[1] = param.asInt(); luuCauHinh(); }
+BLYNK_WRITE(V15) { thoiGianTuoi = param.asInt(); luuCauHinh(); }
+BLYNK_WRITE(V8)  { loaiCay[0] = param.asInt(); nguongDoAm[0] = layNguong(loaiCay[0]); luuCauHinh(); }
+BLYNK_WRITE(V9)  { loaiCay[1] = param.asInt(); nguongDoAm[1] = layNguong(loaiCay[1]); luuCauHinh(); }
+BLYNK_WRITE(V10) { loaiCay[2] = param.asInt(); nguongDoAm[2] = layNguong(loaiCay[2]); luuCauHinh(); }
+
+BLYNK_WRITE(V4) {
+  if (!dangTuoiHenGio && cheDo[0] == 0) {
+    if (param.asInt()) moVan(0); else tatVan(0, true);
+  }
+}
+BLYNK_WRITE(V5) {
+  if (!dangTuoiHenGio && cheDo[1] == 0) {
+    if (param.asInt()) moVan(1); else tatVan(1, true);
+  }
+}
+BLYNK_WRITE(V6) {
+  if (!dangTuoiHenGio && cheDo[2] == 0) {
+    if (param.asInt()) moVan(2); else tatVan(2, true);
+  }
+}
+
+BLYNK_WRITE(V7) {
+  if (dangTuoiHenGio || coVanAutoMo()) {
+    Blynk.virtualWrite(V7, digitalRead(PIN_BOM) == RELAY_ON ? 1 : 0);
+    return;
+  }
+  if (param.asInt() == 1) {
+    if (coVanNaoMo()) {
+        delay(300); // Khởi động mềm thủ công
+        digitalWrite(PIN_BOM, RELAY_ON);
+    } else {
+        Blynk.virtualWrite(V7, 0); 
+    }
+  } else {
+    digitalWrite(PIN_BOM, RELAY_OFF);
+  }
+}
+
+// ---------------------------------------------------------
+// ĐỌC CẢM BIẾN THỰC TẾ
+// ---------------------------------------------------------
+void docCamBien() {
+  for (int i = 0; i < 3; i++) {
+    if (nguongDoAm[i] == 0) {
+      doAmDat[i] = 0;
+      Blynk.virtualWrite(i + 1, 0);
+      continue;
+    }
+    int raw = analogRead(PIN_CHAU[i]);
+    doAmDat[i] = constrain(map(raw, ADC_KHO, ADC_UOT, 0, 100), 0, 100);
+    Blynk.virtualWrite(i + 1, doAmDat[i]);
+  }
+
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+  if (!isnan(h) && !isnan(t)) {
+    nhietDoKK = t;
+    doAmKK    = h;
+    Blynk.virtualWrite(V11, t);
+    Blynk.virtualWrite(V12, h);
+  }
+}
