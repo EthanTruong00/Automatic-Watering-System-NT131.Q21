@@ -217,3 +217,109 @@ void docCamBien() {
     Blynk.virtualWrite(V12, h);
   }
 }
+// ---------------------------------------------------------
+// VÒNG LẶP LOGIC XỬ LÝ (TỰ ĐỘNG & HẸN GIỜ)
+// ---------------------------------------------------------
+void xuLyLogic() {
+  DateTime now = rtc.now();
+  int tong = now.hour() * 60 + now.minute();
+  for (int ca = 0; ca < 2; ca++) {
+    if (gioHen[ca] == 24) continue;
+    int tongHen = gioHen[ca] * 60 + phutHen[ca];
+    if (tong == tongHen && phutDaTuoi != tong) {
+      dangTuoiHenGio  = true; phutDaTuoi = tong;
+      thoiDiemBatDau  = millis();
+      break;
+    }
+  }
+
+  bool dangTrongCa = false;
+  for (int ca = 0; ca < 2; ca++) {
+    if (gioHen[ca] != 24 && tong == gioHen[ca] * 60 + phutHen[ca]) dangTrongCa = true;
+  }
+  if (!dangTrongCa) phutDaTuoi = -1;
+
+  if (dangTuoiHenGio) {
+    unsigned long daTroi = millis() - thoiDiemBatDau;
+    if (daTroi >= (unsigned long)thoiGianTuoi * 60000UL) {
+      dangTuoiHenGio = false;
+      for (int i = 0; i < 3; i++) if (cheDo[i] != 1) tatVan(i, true);
+    }
+  }
+
+  for (int i = 0; i < 3; i++) {
+    if (nguongDoAm[i] == 0) continue;
+    
+    if (cheDo[i] == 1) { 
+      int nguong = nguongDoAm[i];
+      if (nhietDoKK > 34.0) nguong += 10; // Thuật toán bù nhiệt
+
+      if (doAmDat[i] < (nguong - 5)) moVan(i);
+      else if (doAmDat[i] >= nguong) tatVan(i, true);
+
+    } else if (dangTuoiHenGio && cheDo[i] == 2) {
+      moVan(i);
+    } else if (!dangTuoiHenGio && cheDo[i] == 2) {
+      tatVan(i, true); 
+    }
+  }
+
+  // KHỞI ĐỘNG MỀM BƠM TRONG AUTO (Chống reset MCU do sụt áp)
+  if (coVanAutoMo()) {
+    if (digitalRead(PIN_BOM) == RELAY_OFF) {
+        delay(300); 
+        digitalWrite(PIN_BOM, RELAY_ON);
+        Blynk.virtualWrite(V7, 1);
+    }
+  } else if (!coVanNaoMo()) {
+    digitalWrite(PIN_BOM, RELAY_OFF);
+    Blynk.virtualWrite(V7, 0);
+  }
+}
+
+void dongBoNTP() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  configTime(7 * 3600, 0, "pool.ntp.org", "time.google.com");
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo, 5000)) {
+    rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon  + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
+  } 
+}
+
+BLYNK_CONNECTED() {
+  dongBoNTP();
+  taiCauHinh();
+  for (int i = 0; i < 3; i++) {
+    Blynk.virtualWrite(V16 + i, cheDo[i]);
+    Blynk.virtualWrite(V8  + i, loaiCay[i]);
+  }
+  Blynk.virtualWrite(V13, gioHen[0]);  Blynk.virtualWrite(V14, phutHen[0]);
+  Blynk.virtualWrite(V21, gioHen[1]);  Blynk.virtualWrite(V22, phutHen[1]);
+  Blynk.virtualWrite(V15, thoiGianTuoi);
+  Blynk.virtualWrite(V20, 0);
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  for (int i = 0; i < 3; i++) {
+    pinMode(PIN_VAN[i], OUTPUT);
+    digitalWrite(PIN_VAN[i], relayMuc(i, false));
+  }
+  pinMode(PIN_BOM, OUTPUT);
+  digitalWrite(PIN_BOM, RELAY_OFF);
+
+  Wire.begin();
+  rtc.begin();
+  dht.begin();
+  Blynk.begin(BLYNK_AUTH_TOKEN, WIFI_SSID, WIFI_PASS);
+  
+  timer.setInterval(5000L, docCamBien);
+  timer.setInterval(2000L, xuLyLogic);
+  timer.setInterval(3600000L, dongBoNTP);
+}
+
+void loop() {
+  Blynk.run();
+  timer.run();
+}
