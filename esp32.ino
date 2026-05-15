@@ -118,6 +118,7 @@ bool coVanAutoMo() {
 // ---------------------------------------------------------
 // AUTO-SAVE LÊN FLASH MEMORY
 // ---------------------------------------------------------
+
 void luuCauHinh() {
   prefs.begin("garden", false);
   for (int i = 0; i < 3; i++) {
@@ -142,6 +143,39 @@ void taiCauHinh() {
   gioHen[1]   = prefs.getInt("gh1", 24); 
   phutHen[1]  = prefs.getInt("ph1", 0);
   thoiGianTuoi = prefs.getInt("tgt", 5);
+  prefs.end();
+}
+
+
+// Hàm lưu toàn bộ cài đặt xuống bộ nhớ Flash
+void luuCauHinh() {
+  prefs.begin("garden", false); // set vùng nhớ
+  
+  for (int i = 0; i < 3; i++) {
+    prefs.putInt(("cd" + String(i)).c_str(), cheDo[i]);    // Lưu chế độ
+    prefs.putInt(("lc" + String(i)).c_str(), loaiCay[i]);  // Lưu loại cây
+  }
+  
+  // Lưu lịch hẹn giờ và thời gian tưới
+  prefs.putInt("gh0", gioHen[0]); 
+  prefs.putInt("ph0", phutHen[0]);
+  prefs.putInt("tgt", thoiGianTuoi);
+  
+  prefs.end(); // Đóng vùng nhớ
+}
+
+void taiCauHinh() {
+  prefs.begin("garden", true); // Mở vùng nhớ với quyền chỉ đọc (true)
+  
+  for (int i = 0; i < 3; i++) {
+    cheDo[i] = prefs.getInt(("cd" + String(i)).c_str(), 0);      // Mặc định là 0 nếu chưa có
+    loaiCay[i] = prefs.getInt(("lc" + String(i)).c_str(), 10);  // Mặc định là 10
+  }
+  
+  gioHen[0] = prefs.getInt("gh0", 7); 
+  phutHen[0] = prefs.getInt("ph0", 0);
+  thoiGianTuoi = prefs.getInt("tgt", 5);
+  
   prefs.end();
 }
 // ---------------------------------------------------------
@@ -254,7 +288,7 @@ void xuLyLogic() {
       int nguong = nguongDoAm[i];
       if (nhietDoKK > 34.0) nguong += 10; // Thuật toán bù nhiệt
 
-      if (doAmDat[i] < (nguong - 5)) moVan(i);
+      if (doAmDat[i] < (nguong - 15)) moVan(i);
       else if (doAmDat[i] >= nguong) tatVan(i, true);
 
     } else if (dangTuoiHenGio && cheDo[i] == 2) {
@@ -264,7 +298,8 @@ void xuLyLogic() {
     }
   }
 
-  // KHỞI ĐỘNG MỀM BƠM TRONG AUTO (Chống reset MCU do sụt áp)
+
+  // KHỞI ĐỘNG BƠM TRONG AUTO 
   if (coVanAutoMo()) {
     if (digitalRead(PIN_BOM) == RELAY_OFF) {
         delay(300); 

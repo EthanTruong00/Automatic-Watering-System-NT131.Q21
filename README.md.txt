@@ -1,38 +1,52 @@
-# Đồ án Mạng máy tính & Truyền thông - UIT
-**Hệ thống Tưới cây Thông minh (ESP32)**
-*Thực hiện: Trương Tấn Kiệt (24520917) & Ân (24520046)*
+# 🌿 Smart Watering System - Hệ Thống Tưới Thông Minh Đa Vùng
 
-## 1. Tình trạng dự án
-- **Thiết bị điều khiển trung tâm:** ESP32 DevKit V1 (DOIT).
-- **Tiến độ hiện tại (Milestone 1):** Đã hoàn thành xử lý tín hiệu đầu vào. Đọc thành công dữ liệu từ 3 cảm biến độ ẩm đất (đã quy đổi ra thang 0-100%) và thời gian thực từ module RTC. Mạch chạy ổn định, không bị chạm nguồn.
+![ESP32](https://img.shields.io/badge/ESP32-323232?style=for-the-badge&logo=espressif&logoColor=white)
+![C++](https://img.shields.io/badge/C++-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white)
+![Blynk](https://img.shields.io/badge/Blynk_IoT-1DB954?style=for-the-badge&logo=blynk&logoColor=white)
 
-## 2. Sơ đồ đấu nối phần cứng hiện tại
-*Lưu ý quan trọng: Đã tách riêng trạm 5V (lấy từ chân VIN của ESP32) và trạm GND trên bo test. Tuyệt đối không cắm chung đường điện để tránh sập nguồn.*
+Đồ án môn học **Embedded System & Wireless Network (NT131.P21)** - Đại học Công nghệ Thông tin (UIT).
+Hệ thống tưới cây tự động giám sát qua IoT, ứng dụng thuật toán điều khiển thông minh để quản lý 3 vùng trồng độc lập chỉ với 1 máy bơm trung tâm.
 
-**A. 3 Cảm biến độ ẩm đất (Analog):**
-- Nguồn: Chân VCC -> Trạm 5V | Chân GND -> Trạm GND.
-- Tín hiệu Chậu 1 -> Chân **D32** (ESP32).
-- Tín hiệu Chậu 2 -> Chân **D33** (ESP32).
-- Tín hiệu Chậu 3 -> Chân **D34** (ESP32).
+* **Nhóm thực hiện:** Nhóm 07
+* **Thành viên:** Trương Tấn Kiệt (24520917) - Lê Quang Minh (24521059)
+* **Giảng viên hướng dẫn:** ThS. Đặng Lê Bảo Chương
 
-**B. Module thời gian thực RTC DS3231:**
-- Nguồn: Chân VCC -> Trạm 5V | Chân GND -> Trạm GND.
-- Chân SDA -> Chân **D21** (ESP32).
-- Chân SCL -> Chân **D22** (ESP32).
+---
 
-**C. Module Relay 4 kênh (Dự kiến đấu ở Giai đoạn 2):**
-- Các chân điều khiển IN1, IN2, IN3 dự kiến nối vào các chân D25, D26, D27 trên ESP32.
+## ✨ Tính Năng Nổi Bật (Core Features)
 
-## 3. Các thông số Code quan trọng
-- **Tốc độ Serial Monitor:** 115200 baud.
-- **Thư viện sử dụng:** `RTClib` (của tác giả Adafruit) cho module DS3231.
-- **Logic cảm biến độ ẩm:** - Đọc tín hiệu Analog (dải giá trị 0 - 4095).
-  - Mức khô (để ngoài không khí): ~3500.
-  - Mức ướt (nhúng ngập nước): ~1200.
-  - Sử dụng hàm `map()` để đảo ngược và quy đổi dải giá trị này về thang 0-100%.
+Hệ thống không chỉ dừng lại ở mức Bật/Tắt Relay cơ bản mà được thiết kế các thuật toán bảo vệ và tối ưu hóa chuẩn công nghiệp:
 
-## 4. Ghi chú sửa lỗi (Troubleshooting)
-- **Lỗi `Failed to connect... exit status 2`:** Xảy ra do mạch bị kẹt code cũ không thể chuyển sang chế độ nạp. 
-  - *Cách fix:* Rút cáp USB -> Nhấn và giữ chặt nút BOOT trên mạch -> Cắm cáp lại (tay vẫn giữ BOOT) -> Bấm Upload -> Chờ đến khi phần trăm nạp (`%`) hiện ra mới thả tay.
-- **Lỗi ESP32 bị sập nguồn / Serial Monitor không hiện chữ:** Xảy ra do cắm nhầm nguồn VCC sang GND trên bo test, hoặc các module hút quá nhiều điện lúc khởi động.
-  - *Cách fix:* Rút toàn bộ module ra để "cách ly". Nạp code thành công rồi mới cắm nóng lại từng thiết bị để tìm ra module gây chạm mạch.
+* 🛡️ **Ma trận an toàn Bơm - Van:** Cơ chế bảo vệ đường ống. Bơm trung tâm sẽ bị *ép tắt* nếu cả 3 Van đều khóa. Tích hợp quy trình **Khởi động mềm** (chống sụt áp) và **Ngắt xả áp suất** (tắt bơm trước, delay 0.5s xả áp rồi mới đóng van).
+* 🌡️ **Thuật toán Bù nhiệt độ:** Khi nhiệt độ môi trường (DHT22) vượt mức 34°C, hệ thống tự động cộng thêm 10% vào ngưỡng tưới mục tiêu để bù đắp lượng nước bốc hơi nhanh, giúp cây chống sốc nhiệt.
+* 💾 **Ghi nhớ trạng thái (NVS Persistence):** Cấu hình loại cây, chế độ (Auto/Manual) và lịch hẹn giờ được ghi trực tiếp vào bộ nhớ Flash (`Preferences.h`). Mạch tự phục hồi đúng trạng thái sau sự cố mất điện.
+* ⏱️ **Hẹn giờ Offline (Local RTC):** Tích hợp module phần cứng DS3231. Hệ thống vẫn tự động tưới đúng giờ ngay cả khi mất kết nối mạng WiFi/Cloud.
+* 📱 **Giao diện IoT thời gian thực:** Điều khiển và giám sát thông số môi trường từ xa qua ứng dụng Blynk (Độ trễ < 1s). Tích hợp Profile các loại cây (người dùng chọn tên cây, hệ thống tự nạp ngưỡng độ ẩm 50% - 90%).
+
+---
+
+## 🛠️ Yêu Cầu Phần Cứng (Hardware Requirements)
+
+* Vi điều khiển: **ESP32 NodeMCU**
+* Module thời gian thực: **DS3231 RTC**
+* Cảm biến: **DHT22** (Nhiệt độ/Độ ẩm khí), **Cảm biến độ ẩm đất điện dung x3**
+* Cơ cấu chấp hành: **Relay 4-Kênh 5V**, **Bơm chìm 12V**, **Van điện từ (Solenoid Valve) 12V x3**
+* Nguồn: Nguồn tổ ong 12V DC, Module hạ áp (Buck Converter) LM2596 (12V xuống 5V).
+
+---
+
+## 📚 Thư Viện Cài Đặt (Dependencies)
+
+Để biên dịch thành công mã nguồn, vui lòng cài đặt các thư viện sau trong Arduino IDE:
+1. `BlynkSimpleEsp32.h` (Quản lý kết nối Blynk Cloud)
+2. `DHT.h` (Của Adafruit)
+3. `RTClib.h` (Của Adafruit - giao tiếp module DS3231)
+4. `Preferences.h` (Tích hợp sẵn trong core ESP32)
+
+---
+
+## 🚀 Hướng Dẫn Sử Dụng (Quick Start)
+
+1. **Clone repository này về máy:**
+   ```bash
+   git clone [https://github.com/your-username/smart-watering-system.git](https://github.com/your-username/smart-watering-system.git)
